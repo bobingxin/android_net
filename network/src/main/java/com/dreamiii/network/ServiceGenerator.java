@@ -1,16 +1,26 @@
 package com.dreamiii.network;
 
+import android.app.Application;
+import android.content.Context;
 import android.os.Build;
 
+import com.franmontiel.persistentcookiejar.PersistentCookieJar;
+import com.franmontiel.persistentcookiejar.cache.SetCookieCache;
+import com.franmontiel.persistentcookiejar.persistence.SharedPrefsCookiePersistor;
+
 import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.TimeUnit;
 
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.logging.HttpLoggingInterceptor;
 import retrofit2.Retrofit;
 import retrofit2.adapter.rxjava.RxJavaCallAdapterFactory;
 import retrofit2.converter.gson.GsonConverterFactory;
+
 
 /**
  * Created by bbx on 2016/10/18.
@@ -19,7 +29,12 @@ import retrofit2.converter.gson.GsonConverterFactory;
 
 public class ServiceGenerator {
 
+    public static final int DEFAULT_MILLISECONDS = 60000;       //默认的超时时间
+    private static boolean isDebug;
+
     public static String apiBaseUrl = "http://10.0.0.15:8089";
+
+    private static Context context;
 
     private static Retrofit.Builder builder =
             new Retrofit.Builder()
@@ -28,11 +43,29 @@ public class ServiceGenerator {
                     .addConverterFactory(GsonConverterFactory.create());
 
 
-    private static OkHttpClient.Builder okHttpBuilder;
+    private static OkHttpClient.Builder okHttpClientBuilder;
+
+    public static void init(Application app){
+        context = app;
+    }
+
+    /** 获取全局上下文 */
+    public static Context getContext() {
+        if (context == null) throw new IllegalStateException("请先在全局Application中调用 init(context) 初始化！");
+        return context;
+    }
+
+
+    private ServiceGenerator() {
+        okHttpClientBuilder = new OkHttpClient.Builder();
+        okHttpClientBuilder.connectTimeout(DEFAULT_MILLISECONDS, TimeUnit.MILLISECONDS);
+        okHttpClientBuilder.readTimeout(DEFAULT_MILLISECONDS, TimeUnit.MILLISECONDS);
+        okHttpClientBuilder.writeTimeout(DEFAULT_MILLISECONDS, TimeUnit.MILLISECONDS);
+    }
 
     /**
      * 用来改变baseurl
-     * @param newApiBaseUrl
+     * @param newApiBaseUrl 新的api url
      */
     public static void changeApiBaseUrl(String newApiBaseUrl) {
         apiBaseUrl = newApiBaseUrl;
@@ -44,26 +77,20 @@ public class ServiceGenerator {
     }
 
     /**
-     * okhttp的builder
-     * @param okbuilder
-     */
-    public static void initClient(OkHttpClient.Builder okbuilder){
-        okHttpBuilder = okbuilder;
-    }
-
-    /**
      * 普通的创建服务的方法
      * @param serviceClass
      * @param <S>
      * @return
      */
     public static <S> S createService(Class<S> serviceClass){
-        OkHttpClient client = okHttpBuilder.build();
+
+        addLogging();
+        OkHttpClient client = okHttpClientBuilder.build();
         Retrofit retrofit = builder.client(client).build();
+
         return retrofit.create(serviceClass);
 
     }
-
 
     /**
      * 特殊的创建服务的方法，有设备id和token的
@@ -74,7 +101,7 @@ public class ServiceGenerator {
      */
     public static <S> S ctreateService(Class<S> serviceClass,final String token){
         if(token != null){
-            okHttpBuilder.addInterceptor(new Interceptor() {
+            okHttpClientBuilder.addInterceptor(new Interceptor() {
                 @Override
                 public Response intercept(Chain chain) throws IOException {
                     Request original = chain.request();
@@ -90,7 +117,7 @@ public class ServiceGenerator {
                 }
             });
         }else{
-            okHttpBuilder.addInterceptor(new Interceptor() {
+            okHttpClientBuilder.addInterceptor(new Interceptor() {
                 @Override
                 public Response intercept(Chain chain) throws IOException {
                     Request original = chain.request();
@@ -106,13 +133,66 @@ public class ServiceGenerator {
             });
         }
 
-        OkHttpClient client = okHttpBuilder.build();
+        addLogging();
+
+        OkHttpClient client = okHttpClientBuilder.build();
         Retrofit retrofit = builder.client(client).build();
         return retrofit.create(serviceClass);
     }
 
-    public static OkHttpClient.Builder getOkhttpClient(){
-        return okHttpBuilder;
+    private static void addLogging(){
+        if(isDebug){
+            HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
+            logging.setLevel(HttpLoggingInterceptor.Level.BODY);
+            okHttpClientBuilder.addInterceptor(logging);
+        }
     }
 
+    private static class ServiceGeneratorHolder {
+        private static ServiceGenerator holder = new ServiceGenerator();
+    }
+
+
+    public static ServiceGenerator getInstance(){
+        return ServiceGeneratorHolder.holder;
+    }
+
+    public static void debug(boolean isDebug){
+        ServiceGenerator.isDebug = isDebug;
+    }
+
+    public ServiceGenerator openCookieStore(){
+        okHttpClientBuilder.cookieJar(new PersistentCookieJar(new SetCookieCache(),new SharedPrefsCookiePersistor(context)));
+        return this;
+    }
+
+
+    public ServiceGenerator setConnectTimeout(int second){
+        okHttpClientBuilder.connectTimeout(second,TimeUnit.SECONDS);
+        return this;
+    }
+
+    public ServiceGenerator setReadTimeout(int second){
+        okHttpClientBuilder.readTimeout(second,TimeUnit.SECONDS);
+        return this;
+    }
+
+    public ServiceGenerator setWriteTimeout(int second){
+        okHttpClientBuilder.writeTimeout(second,TimeUnit.SECONDS);
+        return this;
+    }
+
+    /** https的全局自签名证书 */
+    public ServiceGenerator setCertificates(InputStream... certificates) {
+        HttpsUtils.SSLParams sslParams = HttpsUtils.getSslSocketFactory(null, null, certificates);
+        okHttpClientBuilder.sslSocketFactory(sslParams.sSLSocketFactory, sslParams.trustManager);
+        return this;
+    }
+
+    /** https双向认证证书 */
+    public ServiceGenerator setCertificates(InputStream bksFile, String password, InputStream... certificates) {
+        HttpsUtils.SSLParams sslParams = HttpsUtils.getSslSocketFactory(bksFile, password, certificates);
+        okHttpClientBuilder.sslSocketFactory(sslParams.sSLSocketFactory, sslParams.trustManager);
+        return this;
+    }
 }
