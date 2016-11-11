@@ -30,5 +30,6 @@ dependencies {
     testCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.5'
     debugCompile 'com.squareup.leakcanary:leakcanary-android:1.5'
     releaseCompile 'com.squareup.leakcanary:leakcanary-android-no-op:1.5'
-    compile project(':network')
+    compile 'com.github.bobingxin:android_net:0.0.2'
+//    compile project(':network')
 }

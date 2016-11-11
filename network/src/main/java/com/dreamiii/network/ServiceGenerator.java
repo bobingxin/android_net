@@ -39,8 +39,8 @@ public class ServiceGenerator {
     private static Retrofit.Builder builder =
             new Retrofit.Builder()
                     .baseUrl(apiBaseUrl)
-                    .addCallAdapterFactory(RxJavaCallAdapterFactory.create())
-                    .addConverterFactory(GsonConverterFactory.create());
+                    .addCallAdapterFactory(RxJavaCallAdapterFactory.create());
+
 
 
     private static OkHttpClient.Builder okHttpClientBuilder;
@@ -82,10 +82,27 @@ public class ServiceGenerator {
      * @param <S>
      * @return
      */
+    public static <S> S createSpecialService(Class<S> serviceClass){
+
+        addLogging();
+        OkHttpClient client = okHttpClientBuilder.build();
+        Retrofit retrofit = builder.client(client).build();
+
+        return retrofit.create(serviceClass);
+
+    }
+
+    /**
+     * 普通的创建服务的方法
+     * @param serviceClass
+     * @param <S>
+     * @return
+     */
     public static <S> S createService(Class<S> serviceClass){
 
         addLogging();
         OkHttpClient client = okHttpClientBuilder.build();
+        builder.addConverterFactory(GsonConverterFactory.create());
         Retrofit retrofit = builder.client(client).build();
 
         return retrofit.create(serviceClass);
@@ -136,9 +153,11 @@ public class ServiceGenerator {
         addLogging();
 
         OkHttpClient client = okHttpClientBuilder.build();
+        builder.addConverterFactory(GsonConverterFactory.create());
         Retrofit retrofit = builder.client(client).build();
         return retrofit.create(serviceClass);
     }
+
 
     private static void addLogging(){
         if(isDebug){
