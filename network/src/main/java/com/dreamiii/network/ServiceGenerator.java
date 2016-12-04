@@ -201,6 +201,24 @@ public class ServiceGenerator {
         return this;
     }
 
+    public ServiceGenerator setHeader(final String key, final String value){
+        okHttpClientBuilder.addInterceptor(new Interceptor() {
+            @Override
+            public Response intercept(Chain chain) throws IOException {
+                Request original = chain.request();
+
+                // Request customization: add request headers
+                Request.Builder requestBuilder = original.newBuilder()
+                        .header(key, value)
+                        .method(original.method(), original.body());
+
+                Request request = requestBuilder.build();
+                return chain.proceed(request);
+            }
+        });
+        return this;
+    }
+
     /** https的全局自签名证书 */
     public ServiceGenerator setCertificates(InputStream... certificates) {
         HttpsUtils.SSLParams sslParams = HttpsUtils.getSslSocketFactory(null, null, certificates);
