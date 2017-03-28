@@ -100,7 +100,7 @@ public class ServiceGenerator {
      */
     public static <S> S createService(Class<S> serviceClass){
 
-        addLogging();
+//        addLogging();
         OkHttpClient client = okHttpClientBuilder.build();
 //        builder.addConverterFactory(GsonConverterFactory.create());
         Retrofit retrofit = builder.client(client).build();
