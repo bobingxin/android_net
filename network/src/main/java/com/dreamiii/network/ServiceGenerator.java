@@ -159,7 +159,7 @@ public class ServiceGenerator {
     }
 
 
-    private static void addLogging(){
+    public static void addLogging(){
         if(isDebug){
             HttpLoggingInterceptor logging = new HttpLoggingInterceptor();
             logging.setLevel(HttpLoggingInterceptor.Level.BODY);
